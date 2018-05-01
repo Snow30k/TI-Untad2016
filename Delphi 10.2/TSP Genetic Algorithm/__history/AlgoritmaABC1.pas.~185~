@@ -1,0 +1,311 @@
+unit AlgoritmaABC1;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Buttons, Vcl.Grids,
+  Vcl.ComCtrls, Vcl.ExtCtrls, mainForm;
+
+procedure ABC1(matrix: TMatrix; awal, sumNode, max: Integer; var bestEver: TPath);
+
+implementation
+
+var
+  n: Integer;//Variable Untuk mengotrol perulangan
+
+//Jika menaruh var pada awal parameter di sebuah procedure maka parametr
+//tersebut menjadi variable inptu dan ouput;
+
+procedure ABC1(matrix: TMatrix; awal, sumNode, max: Integer;
+  var bestEver: TPath);
+function picOne(fit: array of Real): Integer;
+var
+  rand:Real;
+begin
+  // Fungsi ini berguna untuk memilih salah satu bee yang secara acak
+  // dengan kemungkinan bee yang memiliki fitness yg bagus akan mendapat kemungkinan
+  // dipilih lebih besar. funcsi ini di copy daro ranbow train tentang Genetic Algorithm
+  Result := 0;
+  rand := Random;
+  if rand > 1 then Exit;
+  while (rand > 0) and (Result < Length(fit)) do
+  begin
+    rand := rand - fit[Result];
+    Result := Result + 1;
+    if Result > Length(fit) then Result := Result - Length(fit);
+  end;
+end;
+
+function sumDistance(matrix: Tmatrix; path: TPath): Integer;
+var
+  i: Integer;
+  d : Word;
+begin
+  //Fungsi untuk menghitung total jarak dari suatu path berdasarkan matrixAdj
+  d := 0;
+  if (matrix <> nil) and (path <> nil) then
+    for i := 0 to n-1 do
+    begin
+    if path[i] < Length(path) then
+      d := d + matrix[path[i]][path[i+1]]
+    else
+      begin
+        d := 9999;
+        exit;
+      end;
+    end
+  else d := 9999;
+  Result := d;
+//  Memo1.Lines.Append(IntToStr(Memo1.Lines.Count + 1)+' '+IntToStr(Result));
+end;
+
+function sumFitness(mtrx: TMatrix; bee:TPath): Real;
+var
+  d: Integer;
+begin
+  Result := 0;
+  d := sumDistance(mtrx, bee);
+  Result := 1/(d+1);
+end;
+
+procedure swapValue(var arr: Array of Integer; a, b: Integer);
+var
+  temp: Integer;
+begin
+  temp := arr[a];
+  arr[a] := arr[b];
+  arr[b] := temp;
+end;
+
+procedure shuffle(var arr: TPath; sum: Integer);
+var
+  indexA, indexB: Integer;
+  i, j: Integer;
+begin
+  for i := 0 to sum do
+  begin
+    indexA := 1 + Random((Length(arr)-2));
+    indexB := 1 + Random((Length(arr)-2));
+    //mengecek nilai random yang dibangkitkan jika nilai lebih besar dari
+    //panjang array maka pertukaran tidak akan dilakukan
+    if (indexA < Length(arr))and (indexB < Length(arr)) then
+      swapValue(arr, indexA, indexB);
+  end;
+end;
+
+procedure reverseArray(var a: array of integer; q: integer);
+var
+  i: Integer;
+begin
+  //procedure ini berguna untuk membalikan nilai index akhir menjadi index awal
+  //contoh : abcde to edbcab
+  for i := q to (Length(a)-1) div 2 do
+  begin
+    swapValue(a, i, (Length(a)-1)-i);
+  end;
+end;
+
+procedure copyOrder(var a, b:TPath);
+var
+  i:Integer;
+begin
+  //procedure ini berguhan untuk mengcopy nilai pada array a ke array b
+  //fungsi ini dapat digantikan dengan perintah move pada delphi tapi
+  //jika mengunakan fungsi move akan membuat bug yang mengakibatkan algoritma
+  //tidak berjalan dengan efektif
+  if a <> nil then
+  begin
+    for i := 0 to Length(a)-1 do
+      b[i] := a[i];
+  end;
+end;
+
+procedure RandomPath(var bee: TPath);
+var
+  tempBee: TPath;// Digunakan untuk menyimpan variable bee
+  equal: BOOL;
+  i, count: Integer;
+begin
+  if bee <> nil then
+  begin
+    SetLength(tempBee, length(bee));
+    copyOrder(bee, tempBee);
+    equal := True;
+    //perulangan untuk mengecek kesamaan dari bee awal dan bee baru jika sama
+    //maka perulangan akan dilakukan terus
+    while equal do
+    begin
+      shuffle(bee, 10);//Acak Bee
+      for i := 0 to Length(bee)-1 do
+        if bee[i] <> tempBee[i] then //mengecek jika ada ketidak samaan
+        begin
+          equal := False;
+          break;
+        end
+        else count := count + 1;
+      if count >= 5*Length(bee) then equal :=False;
+    end;
+  end;
+end;
+
+procedure normalizeFitness(var fit: array of real);
+var
+  sum: real;
+  i: Integer;
+begin
+  sum := 0;
+  for i := 0 to Length(fit) do
+    sum := sum + fit[i];
+  for i := 0 to Length(fit) do
+    fit[i] := fit[i]/sum;
+end;
+
+procedure insertSequnece(var bee: TPath);
+var
+  indexA, indexB, a, b: Int16;
+  temp: TPath;
+begin
+  for b := 0 to 10 do
+  begin
+    if bee <> nil then
+    begin
+      indexA := 1+Random(Length(bee)-2);
+      indexB := indexA+Random(Length(bee)-indexA);
+      while (indexA = indexB) or (indexA > indexB) or (indexB >= Length(bee)-1) do
+      begin
+        indexA := 1+Random(Length(bee)-2);
+        indexB := indexA+Random(Length(bee)-indexA);
+      end;
+      SetLength(temp, indexB-indexA);
+      for a := indexA to indexB-1 do
+        temp[a-indexA] := bee[a];
+      bee[indexA] := bee[indexB];
+      for a := indexA+1 to indexB do
+        bee[a] := temp[(a-indexA)-1];
+    end;
+  end;
+end;
+
+var
+  i, j, recordDist, ind, a, maxLim: Integer;
+  bee: array of TPath;
+  temp: TPath;
+  tempFit: Real;
+  fit, prob: array of real;
+  lim: array of Integer;
+  ToStr: string;
+
+begin
+  // Setup semua variable yang akan digunakan.
+  SetLength(bee, sumNode);
+  SetLength(fit, sumNode);
+  SetLength(prob, sumNode);
+  SetLength(lim, sumNode);
+  SetLength(bestEver, sumNode+1);
+  maxLim := max*2;
+  recordDist := 99999;
+  i := 0;
+  j := 0;
+  n := sumNode;
+
+  // Memasukan Stiap Node Kedalam scout 1 yang kemudian akan diacak.
+  SetLength(bee[0], n+1);
+  for i := 0 to n-2 do
+  begin
+    if i = awal then
+      j := j + 1;
+    bee[0][i+1] := i + j;
+  end;
+  bee[0][0] := awal;
+  bee[0][Length(bee[0])-1] := awal;
+
+  // Tahap 1 mencari solusi secara acak Tugas Scout Bee.
+  for i := 1 to n-1 do
+  begin
+    SetLength(bee[i], n+1);
+    copyOrder(bee[i-1], bee[i]);
+    RandomPath(bee[i]);
+  end;
+
+  for j := 1 to max do
+  begin
+    // Tahap Employed Bee
+    for i := 0 to n-1 do
+    begin
+      // Menghitung Fitnes Dari Setiap Solusi Yang Di temukan oleh Scout Bee.
+      // Tugas Dari Employed Bee
+      fit[i] := sumFitness(matrix, bee[i]);
+      for a := 0 to max do
+      begin
+        SetLength(temp, length(bee[i]));
+        copyOrder(bee[i], temp);
+        shuffle(temp, 10);
+        tempFit := sumFitness(matrix, temp);
+        //Jika Fitness lama lebih besar dari fit terbaru maka fit lama akan ditukar
+        //dengan fit baru dan juga mengubah solusi lama dengan baru.
+        if fit[i] > tempFit then
+        begin
+          copyOrder(temp, bee[i]);
+          fit[i] := tempFit;
+        end
+        else
+          lim[i] := lim[i] + 1;
+      end;
+    end;
+    for i := 0 to n-1 do prob[i] := fit[i];
+    normalizeFitness(prob);
+
+    // Tahap Onlooek
+    for i := 0 to n-1 do
+    begin
+      //memilih solusi dari employed bee secara acak dengan kemungkinan
+      //solusih yang baik lebi besar kemungkinannya untuk dipilih.
+      ind := picOne(prob);
+      for a := 0 to max do
+      begin
+        copyOrder(bee[ind], temp);
+        shuffle(temp, 20);
+        tempFit := sumFitness(matrix, temp);
+        if fit[i] > tempFit then
+        begin
+          copyOrder(temp, bee[i]);
+          fit[i] := tempFit;
+        end
+        else
+          lim[i] := lim[i] + 1;
+      end;
+    end;
+
+    // Tahap Scout Bee
+    // Mencari Solusi Yang Tidak mengalami peningkatan untuk di ganti dengan
+    // solusi baru secara acak.
+    for i := 0 to n-1 do
+    begin
+      if lim[i] > maxLim then
+      begin
+        RandomPath(bee[i]);
+        lim[i] := 0;
+      end;
+    end;
+
+    //Mencari Solusi Terbaik.
+    for i := 0 to n-1 do
+    begin
+      a := sumDistance(matrix, bee[i]);
+      if a < recordDist then
+      begin
+        copyOrder(bee[i], bestEver);
+        recordDist := a;
+        ToStr := '';
+        for a := 0 to Length(bestEver)-1 do ToStr := ToStr + IntToStr(bestEver[a]);
+        Form1.Memo1.Lines.Append('');
+        Form1.Memo1.Lines.Append('Jalur : '+ToStr);
+        Form1.Memo1.Lines.Append('Jarak : '+IntToStr(recordDist));
+      end;
+    end;
+  end;
+end;
+
+
+end.
