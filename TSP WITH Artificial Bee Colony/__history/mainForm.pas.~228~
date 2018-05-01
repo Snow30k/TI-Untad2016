@@ -1,0 +1,644 @@
+unit mainForm;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Buttons, Vcl.Grids,
+  Vcl.ComCtrls, Vcl.ExtCtrls;
+
+type
+  TMatrix = array of array of Integer;
+  TPath = array of integer;
+
+type
+  Thread2 = class(TThread)
+    protected
+      procedure Execute; Override;
+    public
+      procedure drawBb;
+  end;
+
+  TForm1 = class(TForm)
+    Panel1: TPanel;
+    PC1: TPageControl;
+    sS: TTabSheet;
+    Label2: TLabel;
+    Memo1: TMemo;
+    TabSheet2: TTabSheet;
+    Matrix: TStringGrid;
+    btnProses: TBitBtn;
+    btnBersihkan: TBitBtn;
+    btnGenerate: TBitBtn;
+    Edit1: TEdit;
+    Panel2: TPanel;
+    Canvas: TImage;
+    BitBtn1: TBitBtn;
+    Label3: TLabel;
+    procedure FormCreate(Sender: TObject);
+    procedure CanvasDblClick(Sender: TObject);
+    procedure CanvasMouseMove(Sender: TObject; Shift: TShiftState; X,
+      Y: Integer);
+    procedure makeLine(Sender: TObject);
+    procedure btnGenerateClick(Sender: TObject);
+    procedure CanvasClick(Sender: TObject);
+    procedure cariTitikAwal(Sender: TObject);
+    procedure btnBersihkanClick(Sender: TObject);
+    procedure btnProsesClick(Sender: TObject);
+    procedure BitBtn1Click(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+    procedure drawLine(startPt, endPt:TPoint; mode:TPenMode);
+//    procedure ABC1(matrix: TMatrix; awal, sumNode, max: Integer; var bestEver: TPath);
+    procedure DrawBestSolution(Path: TPath; cl: TColor);
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+{$R *.dfm}
+var
+   // variable untuk mengontrol banyaknya node yang dibuat
+  // Variable yang nantinya sebagai output
+  curLoc, loc, origin, moveTo: TPoint;
+  draw: BOOL;
+  infinity: Word = 9999;
+  curr: Integer;
+  curNode: TPanel;
+  WorkThread: Thread2;
+  bestSolution: TPath;
+  count, n, max: Integer;
+  matrixAdj: TMatrix;
+
+procedure TForm1.drawLine(startPt, endPt:TPoint; mode:TPenMode);
+begin
+  if draw then
+  begin
+    Canvas.Canvas.Pen.Mode := mode;
+    Canvas.Canvas.Pen.Width := 2;
+    Canvas.Canvas.MoveTo(startPt.X, startPt.Y);
+    Canvas.Canvas.LineTo(endPt.X, endPt.Y);
+  end;
+end;
+  
+// Procedure Untuk Membuat Radius Pada Component
+procedure RoundCornerOf(Control: TWinControl) ;
+var
+   R: TRect;
+   Rgn: HRGN;
+begin
+   with Control do
+   begin
+     R := ClientRect;
+     rgn := CreateRoundRectRgn(R.Left, R.Top, R.Right, R.Bottom, 40, 40) ;
+     Perform(EM_GETRECT, 0, lParam(@r)) ;
+     InflateRect(r, - 4, - 4) ;
+     Perform(EM_SETRECTNP, 0, lParam(@r)) ;
+     SetWindowRgn(Handle, rgn, True) ;
+     Invalidate;
+   end;
+end;
+
+//Procedure untuk menghubungkan semua edge secara otomatis
+procedure TForm1.BitBtn1Click(Sender: TObject);
+begin
+  Memo1.Lines.Clear;
+  Memo1.Lines.Append('1. buat Node di samping dengan cara mengklik dua kali pada canvas');
+  Memo1.Lines.Append('2. Klik Generate Edge');
+  Memo1.Lines.Append('3. Tentukan Titik awal dengan mengklik dua kali pada node');
+  Memo1.Lines.Append('4. isikan max itersi');
+  Memo1.Lines.Append('5. Klik Proses');
+end;
+
+procedure TForm1.btnBersihkanClick(Sender: TObject);
+begin
+  //FormCreate(Sender);
+  Memo1.Lines.Clear;
+  DrawBestSolution(bestSolution, clBlack);
+end;
+
+procedure TForm1.btnGenerateClick(Sender: TObject);
+var
+  i, j, rand: byte;
+  node1, node2: TPanel;
+begin
+  Canvas.Canvas.Pen.Color := clBlack;
+  draw := True;
+  for i := 0 to count-1 do
+  begin
+    node1 := TPanel(FindComponent('Node'+IntToStr(i)));
+    if node1 <> nil then
+    begin
+      origin := Point(node1.Left+(node1.Width div 2), node1.Top+(node1.Height div 2));
+      for j := i+1 to count-1 do
+      begin
+        node2 := TPanel(FindComponent('Node'+IntToStr(j)));
+        if node2 <> nil then
+        begin
+          moveTo := Point(node2.Left+(node2.Width div 2), node2.Top+(node2.Height div 2));
+          drawLine(origin, moveTo, pmNotXor);
+          loc := Point((origin.X + moveTo.X) div 2, (origin.Y + moveTo.Y) div 2);
+          rand := 5+Random(50);
+          //round(sqrt(sqr(abs(moveTo.Y-origin.Y)/9) + (sqr(moveTo.X-origin.X)/9)));;//membangkitkan nilai secara acak untuk setiap vertex/edge yang dibuat
+          Canvas.Canvas.TextOut(loc.X, loc.Y, IntToStr(rand));
+          //memasukan nilai acak yang telah di bangkitkan ke dalam stringGrid
+          Matrix.Cells[Ord(node1.Caption[1])-64, Ord(node2.Caption[1])-64] := IntToStr(rand);
+          Matrix.Cells[Ord(node2.Caption[1])-64, Ord(node1.Caption[1])-64] := IntToStr(rand);
+        end;
+      end;
+    end;
+  end;
+  draw := False;
+end;
+
+procedure TForm1.btnProsesClick(Sender: TObject);
+var
+  awal, i, j, cont: Integer;
+  ulang: BOOL;
+begin
+  Memo1.Lines.Clear;
+  if (Edit1.Text = '') then
+  begin
+    MessageDlg('Titik Awal atau Max Iterasi Masih Kosong', mtError, [mbOK], 0);
+    Edit1.SetFocus;
+  end
+  else
+  begin
+    //Memindahkan Nilai dari StringGrid Kedalam variable
+    SetLength(matrixAdj, count, count);
+    for i := 1 to Matrix.RowCount-1 do
+      for j := 1 to Matrix.ColCount-1 do
+        matrixAdj[i-1][j-1] := StrToInt(Matrix.Cells[i, j]);
+    //Memanggil Fungsi ABC dimana fungsi ini menerima 4 inputan
+    //3 pertama inputan untuk algoritma ABC dan parameter terakhir
+    //merupakan output dari algortima ini.
+    cont := 0;
+    ulang := True;
+    max := StrToInt(Edit1.Text);
+    while (cont < 3) and ulang do
+    begin
+      try
+        WorkThread := Thread2.Create(False);
+        ulang := False;
+      except
+        cont := cont + 1;
+        Form1.Memo1.Lines.Clear;
+      end;
+    end;
+    if cont > 3 then
+      MessageDlg('Telah Terjadi Kesalahan Pada Algoritma. Restart Aplikasi', mtError, [mbOK], 0);
+  end;
+end;
+
+procedure TForm1.CanvasClick(Sender: TObject);
+begin
+  //PRocedure ini berguna untuk Menghapus Line jika
+  //mengklik pada area canvas
+  if draw then
+  begin
+    drawLine(origin, moveTo, pmNotXor);
+    draw := False;
+  end;
+end;
+
+procedure TForm1.CanvasDblClick(Sender: TObject);
+var
+  node: TPanel;
+  i: Byte;
+begin
+  node := TPanel.Create(Self);
+  node.Parent := Panel2;
+  node.BevelOuter := bvNone;
+  node.ParentBackground := False;
+  node.Color := clBlack;
+  node.Font.Color := clWhite;
+  node.Font.Size := 9;
+  node.Width := 20;
+  node.Height := 20;
+  node.Left := loc.X;
+  node.Top := loc.Y;
+  node.Name := 'Node'+IntToStr(count);
+  node.Caption := Chr(65+count);
+  RoundCornerOf(node);
+  node.BringToFront;
+  //node.OnClick := makeLine;
+  node.OnDblClick := cariTitikAwal;
+  //ComboBox1.Items.Append(Chr(65+count));
+  count := count + 1;
+
+  if count > 1 then
+  begin
+    Matrix.RowCount := Matrix.RowCount + 1;
+    Matrix.ColCount := Matrix.ColCount + 1;
+    Matrix.Cells[0, count] := Chr(65+count-1);
+    Matrix.Cells[count, 0] := Chr(65+count-1);
+    Matrix.Cells[count, count] := '0';
+
+    for I := 1 to count-1 do
+    begin
+      Matrix.Cells[i, count] := '9999';
+      Matrix.Cells[count, i] := '9999';
+    end;
+  end;
+end;
+
+procedure TForm1.CanvasMouseMove(Sender: TObject; Shift: TShiftState; X,
+  Y: Integer);
+begin
+  loc := Point(X, Y);
+  //Membuat preview Line yang blm di hubungkan
+  //garis baru akan dibuat setiap mouse di gerakan dan garis sebelumnya
+  //akan dihapus
+  if draw then
+  begin
+    Canvas.Canvas.Pen.Color := clRed;
+    drawLine(origin, moveTo, pmNotXor);//menghapus garis sebelumnya
+    moveTo := Point(X, Y);
+    drawLine(origin, moveTo, pmNotXor);//menampilkan garis saat ini
+  end;
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+var
+  Bitmap: TBitmap;
+  node: TPanel;
+  i: Byte;
+begin
+  count := 0;
+  //Membersihkan Canvas/Image 
+  Bitmap := nil;
+  try
+    Bitmap := TBitmap.Create;
+    Bitmap.Width := Canvas.Width;
+    Bitmap.Height := Canvas.Height;
+    Canvas.Picture.Graphic := Bitmap;
+  finally
+    Bitmap.Free;
+  end;
+  for I := 0 to count-1 do
+    if TPanel(FindComponent('Node'+IntToStr(I))) <> Nil then
+    begin
+      node := TPanel(FindComponent('Node'+IntToStr(I)));
+      FreeAndNil(node); //Menghapus Node
+    end;
+
+  Matrix.RowCount := 2;
+  Matrix.ColCount := 2;
+  Matrix.Cells[1, 1] := '0';
+  Matrix.Cells[0, 1] := 'A';
+  Matrix.Cells[1, 0] := 'A';
+end;
+
+procedure TForm1.makeLine(Sender: TObject);
+var
+  rand: Byte;
+begin
+  if draw then
+  begin
+    drawLine(Origin, moveTo, pmNotXor); //Menghapus Edge Yang Belum FIX
+    loc.X := TPanel(Sender).Left+(TPanel(Sender).Width div 2);
+    loc.Y := TPanel(Sender).top+(TPanel(Sender).Height div 2);
+    Canvas.Canvas.Pen.Color := clBlack;
+    MoveTo := Point(loc.X, loc.Y);
+    drawLine(Origin, moveTo, pmCopy); //Membuat Edge Yang Fix
+    rand := 5 + Random(25);//Generate Random value untuk setiap vertex/Edge dari 5-30
+    Matrix.Cells[curr+1, (Ord(TPanel(Sender).Caption[1]))-65+1] := IntToStr(rand);
+    Matrix.Cells[(Ord(TPanel(Sender).Caption[1]))-65+1, curr+1] := IntToStr(rand);
+    loc.X := (loc.X-4 + curLoc.X-4) div 2;
+    loc.Y := (loc.Y-4  + curLoc.Y-4) div 2;
+    Canvas.Canvas.TextOut(loc.X, loc.Y, IntToStr(rand)); //Menampilkan Nilai Pada Edge
+    draw := False;
+  end
+  else
+  begin
+    curr := (Ord(TPanel(Sender).Caption[1])-65);//Meyimpan Node/Panel Saat ini
+    draw := true;
+    //Menghitung Koordinat Node Saat ini
+    curLoc := Point(TPanel(Sender).Left+(TPanel(Sender).Width div 2), TPanel(Sender).top+(TPanel(Sender).Height div 2));
+    origin := Point(curLoc.X, curLoc.Y); // Menentukan Titik Awal Line
+    moveTo := origin;//Untuk menghilangkan BUG
+  end;
+end;
+
+procedure TForm1.cariTitikAwal(Sender: TObject);
+begin
+  //Fungsi ini berguna untuk menentukan titik awal dengan
+  //cara mengklik dua kali pada node
+  TPanel(Sender).Color := clRed;
+  if curNode <> Nil then curNode.Color := clBlack;
+  curNode := TPanel(Sender);
+  //ComboBox1.Text := curNode.Caption;
+end;
+
+procedure TForm1.DrawBestSolution(Path: TPath; cl: TColor);
+var
+  node1, node2: TPanel;
+  i: Integer;
+begin
+  draw := True;
+  for i := 0 to Length(Path)-2 do
+  begin
+    node1 := TPanel(FindComponent('Node'+IntToStr(Path[i])));
+    node2 := TPanel(FindComponent('Node'+IntToStr(Path[i+1])));
+    origin.X := node1.Left + (node1.Width div 2);
+    origin.Y := node1.Top + (node1.Height div 2);
+
+    moveTo.X := node2.Left + (node2.Width div 2);
+    moveTo.Y := node2.Top + (node2.Height div 2);
+    drawLine(origin, moveTo, pmNotXor);
+    Canvas.Canvas.Pen.Color := cl;
+    drawLine(origin, moveTo, pmCopy);
+  end;
+  draw := False;
+end;
+
+{ Thread1 }
+
+procedure Thread2.drawBb;
+begin
+  Form1.DrawBestSolution(bestSolution, clBlack);
+end;
+
+procedure Thread2.Execute;
+function picOne(fit: array of Real): Integer;
+var
+  rand:Real;
+begin
+  // Fungsi ini berguna untuk memilih salah satu bee yang secara acak
+  // dengan kemungkinan bee yang memiliki fitness yg bagus akan mendapat kemungkinan
+  // dipilih lebih besar. funcsi ini di copy daro ranbow train tentang Genetic Algorithm
+  Result := 0;
+  rand := Random;
+  if rand > 1 then Exit;
+  while (rand > 0) and (Result < Length(fit)) do
+  begin
+    rand := rand - fit[Result];
+    Result := Result + 1;
+    if Result > Length(fit) then Result := Result - Length(fit);
+  end;
+end;
+
+function sumDistance(path: TPath): Integer;
+var
+  i: Integer;
+  d : int64;
+begin
+  //Fungsi untuk menghitung total jarak dari suatu path berdasarkan matrixAdj
+  d := 0;
+  if (matrixAdj <> nil) and (path <> nil) then
+    for i := 0 to n-1 do
+    begin
+      if path[i] < Length(path) then
+        d := d + matrixAdj[path[i]][path[i+1]]
+      else
+      begin
+        Result := d;
+        exit ;
+      end;
+    end
+  else d := 9999;
+  Result := d;
+//  Memo1.Lines.Append(IntToStr(Memo1.Lines.Count + 1)+' '+IntToStr(Result));
+end;
+
+//function sumFitness(bee:TPath; var d: Integer): Real;
+//begin
+//  Result := 0;
+//  d := sumDistance(bee);
+//  Result := 1/(d+1);
+//end;
+
+procedure swapValue(var arr: Array of Integer; a, b: Integer);
+var
+  temp: Integer;
+begin
+  temp := arr[a];
+  arr[a] := arr[b];
+  arr[b] := temp;
+end;
+
+procedure copyOrder(var a, b:TPath);
+var
+  i:Integer;
+begin
+  //procedure ini berguhan untuk mengcopy nilai pada array a ke array b
+  //fungsi ini dapat digantikan dengan perintah move pada delphi tapi
+  //jika mengunakan fungsi move akan membuat bug yang mengakibatkan algoritma
+  //tidak berjalan dengan efektif
+  if a <> nil then
+  begin
+    SetLength(b, length(a));
+    for i := 0 to Length(a)-1 do
+      b[i] := a[i];
+  end;
+end;
+
+procedure shuffle(var arr: TPath; sum: Integer);
+var
+  indexA, indexB: Integer;
+  i, j: Integer;
+begin
+  for i := 0 to sum do
+  begin
+    indexA := Random((Length(arr)-1));
+    indexB := Random((Length(arr)-1));
+    //mengecek nilai random yang dibangkitkan jika nilai lebih besar dari
+    //panjang array maka pertukaran tidak akan dilakukan
+    if (indexA < Length(arr))and (indexB < Length(arr)) then
+      swapValue(arr, indexA, indexB);
+  end;
+end;
+
+procedure RandomPath(var bee: TPath);
+var
+  tempBee: TPath;// Digunakan untuk menyimpan variable bee
+  equal: BOOL;
+  i, count: Integer;
+begin
+  if bee <> nil then
+  begin
+    SetLength(tempBee, length(bee));
+    copyOrder(bee, tempBee);
+    equal := True;
+    //perulangan untuk mengecek kesamaan dari bee awal dan bee baru jika sama
+    //maka perulangan akan dilakukan terus
+    while equal do
+    begin
+      shuffle(bee, 10);//Acak Bee
+      for i := 0 to Length(bee)-2 do
+        if bee[i] <> tempBee[i] then //mengecek jika ada ketidak samaan
+        begin
+          equal := False;
+          break;
+        end
+        else count := count + 1;
+      if count >= 5*Length(bee) then equal :=False;
+    end;
+  end;
+end;
+
+procedure insertSequnece(var bee: TPath);
+var
+  indexA, indexB, a, b: Int16;
+  temp: TPath;
+begin
+  for b := 0 to 10 do
+  begin
+    if bee <> nil then
+    begin
+      indexA := Random(Length(bee)-1);
+      indexB := (indexA+1)+Random((Length(bee)-1)-(indexA+1));
+      while (indexA = indexB) or (indexA > indexB) or (indexB >= Length(bee)-1) do
+      begin
+        indexA := Random(Length(bee)-1);
+        indexB := (indexA+1)+Random((Length(bee)-1)-(indexA+1));
+      end;
+      SetLength(temp, indexB-indexA);
+      for a := indexA to indexB-1 do
+        temp[a-indexA] := bee[a];
+      bee[indexA] := bee[indexB];
+      for a := indexA+1 to indexB do
+        bee[a] := temp[(a-indexA)-1];
+    end;
+  end;
+end;
+
+procedure normalizeFitness(var fit: array of Real);
+var
+  sum: real;
+  i: Integer;
+begin
+  sum := 0;
+  for i := 0 to Length(fit) do
+    sum := sum + fit[i];
+  for i := 0 to Length(fit) do
+    fit[i] := fit[i]/sum;
+end;
+
+var
+  i, j, recordDist, ind, a, tempDis: Integer;
+  temp: TPath;
+  tempFit: Integer;
+  nectar: array of Integer;
+  bee: array of TPath;
+  fit, prob:array of real;
+  lim: array of Integer;
+  ToStr: string;
+
+begin
+  inherited;
+  n := count;
+  SetLength(bee, n);
+  SetLength(fit, n);
+  SetLength(prob, n);
+  SetLength(lim, n);
+  SetLength(nectar, n);
+  recordDist := 9999;
+
+
+  SetLength(bee[0], n+1);
+  for i := 0 to n-1 do
+  begin
+    bee[0][i] := i;
+  end;
+  bee[0][Length(bee[0])-1] := bee[0][0];
+
+  // Tahap 1 mencari solusi secara acak Tugas Scout Bee.
+  for i := 1 to n-1 do
+  begin
+    SetLength(bee[i], n+1);
+    copyOrder(bee[i-1], bee[i]);
+    RandomPath(bee[i]);
+    bee[i][Length(bee[i])-1] := bee[i][0];
+  end;
+
+  for j := 0 to max do
+  begin
+    //Tugas Employed Bee menghitung fitness dari solsi yang di temukan Scout
+    for i := 0 to n-1 do
+    begin
+      nectar[i] := sumDistance(bee[i]);
+      for a := 0 to 50 do
+      begin
+        copyOrder(bee[i], temp);
+        shuffle(temp, 10);
+        temp[Length(temp)-1] := temp[0];
+        tempDis := sumDistance(temp);
+        if nectar[i] > tempDis then
+        begin
+          copyOrder(temp, bee[i]);
+          nectar[i] := tempDis;
+        end
+        else
+          lim[i] := lim[i] + 1;
+      end;
+      prob[i] := nectar[i];
+    end;
+
+    normalizeFitness(prob);
+    // Tugas Onlooker memilih solusi berdasaran probabilitasnya
+    for i := 0 to n-1 do
+    begin
+      //memilih solusi dari employed bee secara acak dengan kemungkinan
+      //solusih yang baik lebi besar kemungkinannya untuk dipilih.
+      ind := picOne(prob);
+      for a := 0 to 50 do
+      begin
+        copyOrder(bee[ind], temp);
+        insertSequnece(temp);
+        temp[Length(temp)-1] := temp[0];
+        tempDis := sumDistance(temp);
+        if fit[i] > tempFit then
+        begin
+          copyOrder(temp, bee[i]);
+          nectar[i] := tempDis;
+        end
+        else
+          lim[i] := lim[i] + 1;
+      end;
+    end;
+
+    // Tahap Scout Bee
+    // Mencari Solusi Yang Tidak mengalami peningkatan untuk di ganti dengan
+    // solusi baru secara acak.
+    for i := 0 to n-1 do
+    begin
+      if lim[i] > 100 then
+      begin
+        RandomPath(bee[i]);
+        bee[i][Length(bee[i])-1] := bee[i][0];
+        lim[i] := 0;
+      end;
+    end;
+
+     //Mencari Solusi Terbaik.
+    for i := 0 to n-1 do
+    begin
+      if nectar[i] < recordDist then
+      begin
+        copyOrder(bee[i], bestSolution);
+        recordDist := nectar[i];
+        Synchronize(drawBb(bestSolution, clRed));
+        ToStr := '';
+        for a := 0 to Length(bestSolution)-1 do ToStr := ToStr + IntToStr(bestSolution[a]);
+        Form1.Memo1.Lines.Append('');
+        Form1.Memo1.Lines.Append('Jalur : '+ToStr);
+        Form1.Memo1.Lines.Append('Jarak : '+IntToStr(recordDist));
+      end;
+    end;
+  end;
+  ToStr := '';
+  for a := 0 to Length(bestSolution)-1 do ToStr := ToStr + Chr(65+bestSolution[a]);
+  Form1.Memo1.Lines.Append('');
+  Form1.Memo1.Lines.Append('Solusi Yang didapatkan : '+ToStr);
+  Form1.Memo1.Lines.Append('Jarak : '+IntToStr(recordDist));
+  ShowMessage('Suda Selesai !!!');
+  WorkThread.Terminate;
+end;
+
+
+end.

@@ -1,0 +1,174 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  BorderStyle = bsSingle
+  Caption = 'Created By Snow30k'
+  ClientHeight = 417
+  ClientWidth = 838
+  Color = clBtnFace
+  Font.Charset = ANSI_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -15
+  Font.Name = 'Century Gothic'
+  Font.Style = []
+  OldCreateOrder = False
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 20
+  object Panel1: TPanel
+    Left = 486
+    Top = 0
+    Width = 352
+    Height = 417
+    Align = alRight
+    BevelOuter = bvNone
+    Color = clWhite
+    ParentBackground = False
+    TabOrder = 0
+    ExplicitLeft = 736
+    ExplicitHeight = 637
+    object PC1: TPageControl
+      Left = 0
+      Top = 0
+      Width = 352
+      Height = 417
+      ActivePage = sS
+      Align = alClient
+      TabOrder = 0
+      ExplicitHeight = 637
+      object sS: TTabSheet
+        Caption = 'Main'
+        ExplicitHeight = 602
+        object Label1: TLabel
+          Left = 3
+          Top = 12
+          Width = 74
+          Height = 20
+          Caption = 'Titik Awal :'
+        end
+        object Label2: TLabel
+          Left = 179
+          Top = 12
+          Width = 88
+          Height = 20
+          Caption = 'Max Iterasi :'
+        end
+        object Memo1: TMemo
+          Left = 0
+          Top = 75
+          Width = 344
+          Height = 307
+          Align = alBottom
+          ScrollBars = ssVertical
+          TabOrder = 0
+        end
+        object btnProses: TBitBtn
+          Left = 3
+          Top = 44
+          Width = 75
+          Height = 25
+          Caption = 'Proses'
+          TabOrder = 1
+          OnClick = btnProsesClick
+        end
+        object ComboBox1: TComboBox
+          Left = 83
+          Top = 9
+          Width = 59
+          Height = 28
+          TabOrder = 2
+          Text = 'A'
+        end
+        object btnBersihkan: TBitBtn
+          Left = 84
+          Top = 44
+          Width = 85
+          Height = 25
+          Caption = 'Bersihkan'
+          TabOrder = 3
+          OnClick = btnBersihkanClick
+        end
+        object btnGenerate: TBitBtn
+          Left = 175
+          Top = 44
+          Width = 135
+          Height = 25
+          Caption = 'Generate Edge'
+          TabOrder = 4
+          OnClick = btnGenerateClick
+        end
+        object Edit1: TEdit
+          Left = 270
+          Top = 9
+          Width = 50
+          Height = 28
+          TabOrder = 5
+          Text = '1'
+        end
+      end
+      object TabSheet2: TTabSheet
+        Caption = 'Matrix'
+        ImageIndex = 1
+        ExplicitHeight = 602
+        object Matrix: TStringGrid
+          Left = 0
+          Top = 0
+          Width = 344
+          Height = 382
+          Align = alClient
+          ColCount = 2
+          DefaultColWidth = 40
+          DefaultRowHeight = 25
+          DrawingStyle = gdsGradient
+          RowCount = 2
+          Font.Charset = ANSI_CHARSET
+          Font.Color = clWindowText
+          Font.Height = -11
+          Font.Name = 'Century Gothic'
+          Font.Style = []
+          GradientStartColor = clWindow
+          ParentFont = False
+          TabOrder = 0
+          ColWidths = (
+            40
+            40)
+          RowHeights = (
+            25
+            25)
+        end
+      end
+    end
+  end
+  object Panel2: TPanel
+    Left = 0
+    Top = 0
+    Width = 486
+    Height = 417
+    Align = alClient
+    BevelOuter = bvNone
+    TabOrder = 1
+    ExplicitWidth = 736
+    ExplicitHeight = 637
+    object Canvas: TImage
+      Left = 0
+      Top = 0
+      Width = 486
+      Height = 417
+      Align = alClient
+      OnClick = CanvasClick
+      OnDblClick = CanvasDblClick
+      OnMouseMove = CanvasMouseMove
+      ExplicitLeft = 496
+      ExplicitTop = 248
+      ExplicitWidth = 105
+      ExplicitHeight = 105
+    end
+    object Label3: TLabel
+      Left = 19
+      Top = 12
+      Width = 135
+      Height = 20
+      Caption = 'Buat Grapgh DIsini'
+    end
+  end
+end

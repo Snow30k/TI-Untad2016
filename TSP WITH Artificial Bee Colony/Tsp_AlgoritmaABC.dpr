@@ -1,0 +1,16 @@
+program Tsp_AlgoritmaABC;
+
+uses
+  Vcl.Forms,
+  mainForm in 'mainForm.pas' {Form1},
+  AlgoritmaABC1 in 'AlgoritmaABC1.pas',
+  Abc2 in 'Abc2.pas';
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TForm1, Form1);
+  Application.Run;
+end.
